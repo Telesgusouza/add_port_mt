@@ -78,12 +78,6 @@ export const Container = styled.div`
     }
   }
 
-  ul {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    grid-gap: 10px;
-  }
-
   li {
     cursor: pointer;
   }
@@ -91,6 +85,20 @@ export const Container = styled.div`
   img {
     width: 100%;
     object-fit: cover;
+  }
+`;
+
+export const Ul = styled.ul`
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-gap: 10px;
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  @media (max-width: 450px) {
+    grid-template-columns: 1fr 1fr;
   }
 `;
 
@@ -157,5 +165,9 @@ export const Button = styled.button`
   &:hover {
     color: black;
     background-color: #fafafa;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
   }
 `;

@@ -2,8 +2,25 @@ import React, { useState } from "react";
 import * as Styled from "./styled";
 
 import noUser from "../../assets/caveira_de_tim.jpg";
+import { DocumentData, collection } from "firebase/firestore";
+import { db, storage } from "../../Config/Firebase/firebase";
+import { ref } from "firebase/storage";
+
+interface ILoadingButton {
+  btn:
+    | ""
+    | "NEW_DESIGN"
+    | "LINK_AND_ICON"
+    | "ABOUT_ME"
+    | "EDIT_COMMENT"
+    | "EDIT_DESIGN";
+}
 
 export default function Form() {
+  const [loadingButton, setLoadingButton] = useState<ILoadingButton>({
+    btn: "",
+  });
+
   const [photoDesign, setPhotoDesign] = useState<null | File>(null);
   const [title, setTitle] = useState<string>("");
   const [decription, setDecription] = useState<string>("");
@@ -80,6 +97,64 @@ export default function Form() {
     setToggleViewEditDesign(true);
   }
 
+  async function submitNewDesign(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+
+    let urlCollection: string = "";
+    let urlStorage: string = "";
+
+    switch (loadingButton.btn) {
+      case "NEW_DESIGN": {
+        urlCollection = "design/mt/data";
+        urlStorage = "design/data";
+        break;
+      }
+    }
+
+    await submit(collection(db, urlCollection), ref(storage, urlStorage), undefined);
+
+    // APAGAR/ignorar
+    await editTask("", undefined);
+  }
+
+  async function submit(
+    urlCollection: DocumentData,
+    urlStorage: DocumentData,
+    obj: undefined
+  ) {
+    try {
+      /*
+      subir sem se conectar dados e foto
+      */
+      const a = {
+        a: urlCollection,
+        b: urlStorage,
+        c: obj,
+      };
+      a;
+    } catch (e) {
+      console.error("Error ", e);
+    }
+  }
+
+  /*
+  seguinte, quando salvamos, primeiro salvamos sem foto logo em seguida salvamos com foto e 
+  EDITAMOS a task adicionando a foto
+
+  já editar task edita a task
+  */
+  async function editTask(id: string, obj: undefined) {
+    try {
+      const a = {
+        a: id,
+        b: obj,
+      };
+      a;
+    } catch (e) {
+      console.error("Error ", e);
+    }
+  }
+
   return (
     <>
       <Styled.Container>
@@ -88,7 +163,7 @@ export default function Form() {
         <hr />
 
         <h3>+ NOVO design</h3>
-        <form action="">
+        <form onSubmit={submitNewDesign}>
           <label htmlFor="design">
             Design
             <Styled.InputFile>
@@ -121,7 +196,20 @@ export default function Form() {
               onChange={(e) => setDecription(e.target.value)}
             ></textarea>
           </label>
-          <Styled.Button>Add design</Styled.Button>
+
+          <Styled.Button
+            type="submit"
+            onClick={() => setLoadingButton({ btn: "NEW_DESIGN" })}
+            // disabled={
+            //   loadingButton.btn !== "" && loadingButton.btn === "NEW_DESIGN"
+            //     ? true
+            //     : false
+            // }
+          >
+            {loadingButton.btn !== "" && loadingButton.btn === "NEW_DESIGN"
+              ? "carregando"
+              : "Add design"}
+          </Styled.Button>
         </form>
 
         <hr />
@@ -168,7 +256,14 @@ export default function Form() {
               placeholder="Link do whatsapp"
             />
           </label>
-          <Styled.Button>Editar links/icone</Styled.Button>
+          <Styled.Button
+            type="submit"
+            onClick={() => setLoadingButton({ btn: "NEW_DESIGN" })}
+          >
+            {loadingButton.btn !== "" && loadingButton.btn === "LINK_AND_ICON"
+              ? "carregando"
+              : "Editar links/icone"}
+          </Styled.Button>
         </form>
 
         <hr />
@@ -296,7 +391,7 @@ export default function Form() {
             </>
           )}
 
-          <ul>
+          <Styled.Ul>
             <li onClick={handleEditDesing}>
               <img src={noUser} alt="design" />
             </li>
@@ -321,7 +416,7 @@ export default function Form() {
             <li>
               <img src={noUser} alt="design" />
             </li>
-          </ul>
+          </Styled.Ul>
         </form>
       </Styled.Container>
     </>
