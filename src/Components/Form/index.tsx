@@ -3,30 +3,21 @@ import * as Styled from "./styled";
 
 import noUser from "../../assets/caveira_de_tim.jpg";
 import {
+  DocumentData,
   addDoc,
   collection,
   doc,
+  getDoc,
   setDoc,
 } from "firebase/firestore";
 import { db, storage } from "../../Config/Firebase/firebase";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { toast } from "react-toastify";
-
-interface ILoadingButton {
-  btn:
-    | ""
-    | "NEW_DESIGN"
-    | "LINK_AND_ICON"
-    | "ABOUT_ME"
-    | "EDIT_COMMENT"
-    | "EDIT_DESIGN";
-}
-
-interface INewDesign {
-  design: null | string;
-  title: string;
-  decription: string;
-}
+import {
+  ILinksSocialMidia,
+  ILoadingButton,
+  INewDesign,
+} from "../../Config/interfaces";
 
 export default function Form() {
   const [loadingButton, setLoadingButton] = useState<ILoadingButton>({
@@ -112,73 +103,125 @@ export default function Form() {
   async function submitNewDesign(e: React.FormEvent<HTMLElement>) {
     e.preventDefault();
 
-    let urlCollection: string = "";
-    let urlStorage: string = "";
     let objData: INewDesign = { decription: "", design: null, title: "" };
 
-    switch (loadingButton.btn) {
-      case "NEW_DESIGN": {
-        if (photoDesign) {
-          urlCollection = "design/mt/data";
-          urlStorage = "design/data";
-          objData = {
-            design: null,
-            title: title,
-            decription: decription,
-          };
-        } else {
-          toast.warn("Preencha o campo Design para prosseguir");
-          return;
-        }
-
-        break;
-      }
+    if (loadingButton.btn === "NEW_DESIGN") {
+      objData = {
+        design: null,
+        title: title,
+        decription: decription,
+      };
+    } else {
+      toast.warn("Preencha o campo Design para prosseguir");
+      setLoadingButton({ btn: "" });
+      return;
     }
 
-    await submit(urlCollection, urlStorage, objData);
+    await submit("design/mt/data", "design/data", objData, photoDesign);
+  }
+
+  async function submitSocialMidiaAndIcon(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+    try {
+      const url = "data/socialmidia";
+      const getData: DocumentData = await getDoc(doc(db, url));
+
+      const obj = {
+        instagram:
+          instagram.trim().length > 0 ? instagram : getData.data().instagram,
+        linkedin:
+          linkedin.trim().length > 0 ? linkedin : getData.data().linkedin,
+        whatsapp:
+          whatsapp.trim().length > 0 ? whatsapp : getData.data().whatsapp,
+      };
+
+      if (
+        instagram.trim().length === 0 &&
+        linkedin.trim().length === 0 &&
+        whatsapp.trim().length === 0 &&
+        photoIcone === null
+      ) {
+        toast.warn("Preencha ao menos 1 campo para editar");
+        setLoadingButton({ btn: "" });
+        return;
+      }
+
+      submit(url, "icon", obj, photoIcone);
+    } catch (e) {
+      console.error("Error ", e);
+    }
   }
 
   async function submit(
-    urlCollection: string,
+    url: string,
     urlStorage: string,
-    obj: INewDesign
+
+    obj: INewDesign | ILinksSocialMidia,
+    photo: File | null
   ) {
     try {
-      if (photoDesign) {
-        const data = await addDoc(collection(db, urlCollection), obj);
-        const idData = data.id;
-        const refStorage = ref(storage, urlStorage + "/" + idData);
+      switch (loadingButton.btn) {
+        case "NEW_DESIGN": {
+          if (photo) {
+            const data = await addDoc(collection(db, url), obj);
+            const idData = data.id;
 
-        await uploadBytes(refStorage, photoDesign);
-        const getDesign = await getDownloadURL(refStorage);
+            const getDesign = await uploadPhoto(
+              urlStorage + "/" + idData,
+              photo
+            );
 
-        await editTask(urlCollection + "/" + idData, {
-          design: getDesign,
-          title: title,
-          decription: decription,
-        });
+            await editTask(url + "/" + idData, {
+              design: getDesign,
+              title: title,
+              decription: decription,
+            });
+
+            setTitle("");
+            setDecription("");
+            setPhotoDesign(null);
+
+            toast.success("Design adicionado com sucesso");
+          }
+          break;
+        }
+
+        case "LINK_AND_ICON": {
+          await setDoc(doc(db, url), obj);
+          if (photo) await uploadPhoto(urlStorage, photo);
+
+          setInstagram("");
+          setLinkedin("");
+          setWhatsapp("");
+          setPhotoIcone(null);
+
+          toast.success("editado com sucesso");
+          break;
+        }
       }
-
-      setTitle("");
-      setDecription("");
-      setPhotoDesign(null);
-      setLoadingButton({btn: ""});
-      toast.success("Design adicionado com sucesso");
     } catch (e) {
       console.error("Error ", e);
       toast.error("Erro ao adicionar design");
+    } finally {
+      setLoadingButton({ btn: "" });
     }
   }
 
   async function editTask(url: string, obj: INewDesign) {
     try {
-
       await setDoc(doc(db, url), obj);
-
     } catch (e) {
       console.error("Error ", e);
       toast.error("Erro ao editar task");
     }
+  }
+
+  async function uploadPhoto(url: string, photo: File) {
+    const refStorage = ref(storage, url);
+
+    await uploadBytes(refStorage, photo);
+    const getDesign = await getDownloadURL(refStorage);
+    return getDesign;
   }
 
   return (
@@ -226,11 +269,6 @@ export default function Form() {
           <Styled.Button
             type="submit"
             onClick={() => setLoadingButton({ btn: "NEW_DESIGN" })}
-            // disabled={
-            //   loadingButton.btn !== "" && loadingButton.btn === "NEW_DESIGN"
-            //     ? true
-            //     : false
-            // }
           >
             {loadingButton.btn !== "" && loadingButton.btn === "NEW_DESIGN"
               ? "carregando"
@@ -240,7 +278,7 @@ export default function Form() {
 
         <hr />
         <h3>Seu icone e Links</h3>
-        <form action="">
+        <form onSubmit={submitSocialMidiaAndIcon}>
           <label htmlFor="icone">
             Seu icone
             <Styled.InputFile>
@@ -284,7 +322,7 @@ export default function Form() {
           </label>
           <Styled.Button
             type="submit"
-            onClick={() => setLoadingButton({ btn: "NEW_DESIGN" })}
+            onClick={() => setLoadingButton({ btn: "LINK_AND_ICON" })}
           >
             {loadingButton.btn !== "" && loadingButton.btn === "LINK_AND_ICON"
               ? "carregando"
