@@ -2,9 +2,15 @@ import React, { useState } from "react";
 import * as Styled from "./styled";
 
 import noUser from "../../assets/caveira_de_tim.jpg";
-import { DocumentData, collection } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  setDoc,
+} from "firebase/firestore";
 import { db, storage } from "../../Config/Firebase/firebase";
-import { ref } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { toast } from "react-toastify";
 
 interface ILoadingButton {
   btn:
@@ -14,6 +20,12 @@ interface ILoadingButton {
     | "ABOUT_ME"
     | "EDIT_COMMENT"
     | "EDIT_DESIGN";
+}
+
+interface INewDesign {
+  design: null | string;
+  title: string;
+  decription: string;
 }
 
 export default function Form() {
@@ -102,56 +114,70 @@ export default function Form() {
 
     let urlCollection: string = "";
     let urlStorage: string = "";
+    let objData: INewDesign = { decription: "", design: null, title: "" };
 
     switch (loadingButton.btn) {
       case "NEW_DESIGN": {
-        urlCollection = "design/mt/data";
-        urlStorage = "design/data";
+        if (photoDesign) {
+          urlCollection = "design/mt/data";
+          urlStorage = "design/data";
+          objData = {
+            design: null,
+            title: title,
+            decription: decription,
+          };
+        } else {
+          toast.warn("Preencha o campo Design para prosseguir");
+          return;
+        }
+
         break;
       }
     }
 
-    await submit(collection(db, urlCollection), ref(storage, urlStorage), undefined);
-
-    // APAGAR/ignorar
-    await editTask("", undefined);
+    await submit(urlCollection, urlStorage, objData);
   }
 
   async function submit(
-    urlCollection: DocumentData,
-    urlStorage: DocumentData,
-    obj: undefined
+    urlCollection: string,
+    urlStorage: string,
+    obj: INewDesign
   ) {
     try {
-      /*
-      subir sem se conectar dados e foto
-      */
-      const a = {
-        a: urlCollection,
-        b: urlStorage,
-        c: obj,
-      };
-      a;
+      if (photoDesign) {
+        const data = await addDoc(collection(db, urlCollection), obj);
+        const idData = data.id;
+        const refStorage = ref(storage, urlStorage + "/" + idData);
+
+        await uploadBytes(refStorage, photoDesign);
+        const getDesign = await getDownloadURL(refStorage);
+
+        await editTask(urlCollection + "/" + idData, {
+          design: getDesign,
+          title: title,
+          decription: decription,
+        });
+      }
+
+      setTitle("");
+      setDecription("");
+      setPhotoDesign(null);
+      setLoadingButton({btn: ""});
+      toast.success("Design adicionado com sucesso");
     } catch (e) {
       console.error("Error ", e);
+      toast.error("Erro ao adicionar design");
     }
   }
 
-  /*
-  seguinte, quando salvamos, primeiro salvamos sem foto logo em seguida salvamos com foto e 
-  EDITAMOS a task adicionando a foto
-
-  já editar task edita a task
-  */
-  async function editTask(id: string, obj: undefined) {
+  async function editTask(url: string, obj: INewDesign) {
     try {
-      const a = {
-        a: id,
-        b: obj,
-      };
-      a;
+
+      await setDoc(doc(db, url), obj);
+
     } catch (e) {
       console.error("Error ", e);
+      toast.error("Erro ao editar task");
     }
   }
 
