@@ -88,6 +88,36 @@ export const Container = styled.div`
   }
 `;
 
+export const ListDesigns = styled.div`
+
+  ul {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: row;
+
+    flex-wrap: wrap;
+  }
+
+  li {
+    border: 1px solid white;
+    padding: 3px 14px;
+
+    margin-right: 10px;
+    margin-bottom: 10px;
+
+    transition: background 0.12s ease-in-out;
+
+    &:nth-child(1) {
+      margin-left: 0;
+    }
+
+    &:hover {
+      background-color: #fafafa;
+      color: black;
+    }
+  }
+`;
+
 export const Ul = styled.ul`
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
@@ -162,8 +192,7 @@ export const InputFile = styled.div`
 
 export const DivButton = styled.div`
   width: 100%;
-  /* max-width: 400px; */
-  
+
   display: flex;
   justify-content: space-between;
 

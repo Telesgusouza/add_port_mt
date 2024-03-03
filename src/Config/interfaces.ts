@@ -5,10 +5,18 @@ export interface ILoadingButton {
     | "LINK_AND_ICON"
     | "ABOUT_ME"
     | "EDIT_COMMENT"
-    | "EDIT_DESIGN";
+    | "EDIT_DESIGN"
+    | "NEW_FILTER";
+}
+
+export interface IFilter {
+  id?: string;
+  filter: string;
 }
 
 export interface IDesign {
+  date: Date;
+  filter: string;
   id?: string;
   design: null | string;
   title: string;

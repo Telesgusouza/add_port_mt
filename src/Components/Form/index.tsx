@@ -25,18 +25,22 @@ import {
   ILinksSocialMidia,
   ILoadingButton,
   IDesign,
+  IFilter,
 } from "../../Config/interfaces";
 
 export default function Form() {
   const [loadingButton, setLoadingButton] = useState<ILoadingButton>({
     btn: "",
   });
-
+  const [currentFilter, setCurrentFilter] = useState<string>("");
   const [radio, setRadio] = useState<string>("1");
 
   const [photoDesign, setPhotoDesign] = useState<null | File>(null);
   const [title, setTitle] = useState<string>("");
   const [decription, setDecription] = useState<string>("");
+
+  const [optionFilter, setOptionFilter] = useState<string>("");
+  const [listFilter, setListFilter] = useState<IFilter[]>([]);
 
   const [photoIcone, setPhotoIcone] = useState<null | File>(null);
   const [instagram, setInstagram] = useState<string>("");
@@ -69,6 +73,8 @@ export default function Form() {
         listData.docs.forEach((element: DocumentData) => {
           list.push({
             id: element.id,
+            date: element.data().date,
+            filter: element.data().filter,
             design: element.data().design,
             title: element.data().title,
             decription: element.data().decription,
@@ -83,7 +89,35 @@ export default function Form() {
     }
 
     getListData();
+
+    return () => {};
   }, [currentData]);
+
+  useEffect(() => {
+    async function getFilters() {
+      try {
+        const list: IFilter[] = [];
+        const getFilters = await getDocs(collection(db, "/data/mt/filters"));
+
+        getFilters.docs.forEach((doc: DocumentData) => {
+          const obj: IFilter = {
+            id: doc.id,
+            filter: doc.data().filter,
+          };
+          list.push(obj);
+        });
+
+        setListFilter(list);
+      } catch (e) {
+        console.error("Error ", e);
+        toast.error("Erro ao trazer filtros");
+      }
+    }
+
+    getFilters();
+
+    return () => {};
+  }, [loadingButton]);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement> | null) {
     if (e && e.target.files && e.target.files.length > 0) {
@@ -137,14 +171,21 @@ export default function Form() {
     setToggleViewEditDesign(true);
     setCurrentData(data);
   }
-
   async function submitNewDesign(e: React.FormEvent<HTMLElement>) {
     e.preventDefault();
 
-    let objData: IDesign = { decription: "", design: null, title: "" };
+    let objData: IDesign = {
+      date: new Date(),
+      filter: "",
+      decription: "",
+      design: null,
+      title: "",
+    };
 
-    if (loadingButton.btn === "NEW_DESIGN") {
+    if (loadingButton.btn === "NEW_DESIGN" && currentFilter) {
       objData = {
+        date: new Date(),
+        filter: currentFilter,
         design: null,
         title: title,
         decription: decription,
@@ -247,6 +288,8 @@ export default function Form() {
     try {
       if (currentData) {
         const data = {
+          filter: currentData?.filter,
+          date: currentData?.date,
           design: editDesign === null ? currentData?.design : null,
           title:
             editTitleDesign === null ? currentData?.title : editTitleDesign,
@@ -266,6 +309,27 @@ export default function Form() {
     } catch (e) {
       console.error(e);
       toast.error("Error ao editar Design");
+    }
+  }
+
+  async function submitNewFilter(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+    try {
+      if (optionFilter.trim().length > 0) {
+        await addDoc(collection(db, "data/mt/filters"), {
+          filter: optionFilter,
+        });
+
+        setOptionFilter("");
+        setLoadingButton({ btn: "" });
+
+        toast.success("Novo filtro adicionado com sucesso");
+      } else {
+        toast.warn("Para prosseguir preencha o campo");
+      }
+    } catch (e) {
+      console.error("Error ", e);
+      toast.error("Ocorreu um erro ao adicionar um novo filtro");
     }
   }
 
@@ -289,6 +353,8 @@ export default function Form() {
             );
 
             await editTask(url + "/" + idData, {
+              date: new Date(),
+              filter: currentFilter,
               design: getDesign,
               title: title,
               decription: decription,
@@ -410,6 +476,16 @@ export default function Form() {
     }
   }
 
+  async function deleteFilter(resp: IFilter) {
+    try {
+      await deleteDoc(doc(db, "/data/mt/filters/" + resp.id));
+      toast.success("Filtro deletado com sucesso, reinicie a página");
+    } catch (e) {
+      console.error("Error ", e);
+      toast.error("Erro ao deletar filtro");
+    }
+  }
+
   return (
     <>
       <Styled.Container>
@@ -452,6 +528,27 @@ export default function Form() {
             ></textarea>
           </label>
 
+          {currentFilter.trim().length > 0 && (
+            <Styled.ListDesigns>
+              <span>Opção selecionada</span>
+              <ul>
+                <li>{currentFilter}</li>
+              </ul>
+            </Styled.ListDesigns>
+          )}
+
+          <Styled.ListDesigns>
+            <span>Selecione uma das opções</span>
+            <ul>
+              {listFilter.length > 0 &&
+                listFilter.map((resp) => (
+                  <li onClick={() => setCurrentFilter(resp.filter)} key={resp.id} >
+                    {resp.filter}
+                  </li>
+                ))}
+            </ul>
+          </Styled.ListDesigns>
+
           <Styled.Button
             type="submit"
             onClick={() => setLoadingButton({ btn: "NEW_DESIGN" })}
@@ -460,6 +557,40 @@ export default function Form() {
               ? "carregando"
               : "Add design"}
           </Styled.Button>
+        </form>
+
+        <hr />
+        <h3>Adicione e retire os filtros</h3>
+        <form onSubmit={submitNewFilter}>
+          <label htmlFor="">
+            <input
+              type="text"
+              placeholder="Adicionar novo filtro"
+              value={optionFilter}
+              onChange={(e) => setOptionFilter(e.target.value)}
+            />
+          </label>
+
+          <Styled.Button
+            type="submit"
+            onClick={() => setLoadingButton({ btn: "NEW_FILTER" })}
+          >
+            {loadingButton.btn !== "" && loadingButton.btn === "NEW_FILTER"
+              ? "carregando"
+              : "Adicionar filtro"}
+          </Styled.Button>
+
+          <Styled.ListDesigns>
+            <span>Clique em uma das opções para apagar ela</span>
+            <ul>
+              {listFilter.length > 0 &&
+                listFilter.map((resp) => (
+                  
+                    <li onClick={() => deleteFilter(resp)} key={resp.id} >{resp.filter}</li>
+                  
+                ))}
+            </ul>
+          </Styled.ListDesigns>
         </form>
 
         <hr />
@@ -671,6 +802,13 @@ export default function Form() {
                   onChange={(e) => setEditDescriptionDesign(e.target.value)}
                 ></textarea>
               </label>
+
+              <Styled.ListDesigns>
+                <span>Filtro</span>
+                <ul>
+                  <li>{currentData?.filter}</li>
+                </ul>
+              </Styled.ListDesigns>
 
               <Styled.DivButton>
                 <Styled.Button
