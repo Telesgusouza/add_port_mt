@@ -93,6 +93,17 @@ export const Ul = styled.ul`
   grid-template-columns: 1fr 1fr 1fr 1fr;
   grid-gap: 10px;
 
+  img {
+    height: 140px;
+
+    transition: transform 0.12s ease;
+    cursor: pointer;
+
+    &:hover {
+      transform: scale(1.04);
+    }
+  }
+
   @media (max-width: 560px) {
     grid-template-columns: 1fr 1fr 1fr;
   }
@@ -146,6 +157,37 @@ export const InputFile = styled.div`
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+`;
+
+export const DivButton = styled.div`
+  width: 100%;
+  /* max-width: 400px; */
+  
+  display: flex;
+  justify-content: space-between;
+
+  button:nth-child(2) {
+    width: fit-content;
+    padding: 7px 15px;
+
+    font-weight: 600;
+    color: #ff9090;
+
+    border: 1px solid #ff9090;
+
+    background-color: transparent;
+
+    transition: background 0.15s ease-in-out;
+
+    &:hover {
+      color: black;
+      background-color: #ff9090;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+    }
   }
 `;
 

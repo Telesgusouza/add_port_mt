@@ -1,28 +1,38 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as Styled from "./styled";
 
-import noUser from "../../assets/caveira_de_tim.jpg";
 import {
   DocumentData,
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
+  getDocs,
   setDoc,
 } from "firebase/firestore";
 import { db, storage } from "../../Config/Firebase/firebase";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import {
+  deleteObject,
+  getDownloadURL,
+  ref,
+  uploadBytes,
+} from "firebase/storage";
 import { toast } from "react-toastify";
 import {
+  IAboutMe,
+  IComment,
   ILinksSocialMidia,
   ILoadingButton,
-  INewDesign,
+  IDesign,
 } from "../../Config/interfaces";
 
 export default function Form() {
   const [loadingButton, setLoadingButton] = useState<ILoadingButton>({
     btn: "",
   });
+
+  const [radio, setRadio] = useState<string>("1");
 
   const [photoDesign, setPhotoDesign] = useState<null | File>(null);
   const [title, setTitle] = useState<string>("");
@@ -47,6 +57,33 @@ export default function Form() {
 
   const [toggleViewEditDesign, setToggleViewEditDesign] =
     useState<boolean>(false);
+
+  const [listDesigns, setListDesigns] = useState<IDesign[]>([]);
+  const [currentData, setCurrentData] = useState<IDesign | null>(null);
+
+  useEffect(() => {
+    async function getListData() {
+      try {
+        const listData = await getDocs(collection(db, "/design/mt/data"));
+        const list: IDesign[] = [];
+        listData.docs.forEach((element: DocumentData) => {
+          list.push({
+            id: element.id,
+            design: element.data().design,
+            title: element.data().title,
+            decription: element.data().decription,
+          });
+        });
+
+        setListDesigns(list);
+      } catch (e) {
+        console.error("Error ", e);
+        toast.error("Erro ao trazer designs");
+      }
+    }
+
+    getListData();
+  }, [currentData]);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement> | null) {
     if (e && e.target.files && e.target.files.length > 0) {
@@ -96,14 +133,15 @@ export default function Form() {
     }
   }
 
-  function handleEditDesing() {
+  function handleEditDesing(data: IDesign) {
     setToggleViewEditDesign(true);
+    setCurrentData(data);
   }
 
   async function submitNewDesign(e: React.FormEvent<HTMLElement>) {
     e.preventDefault();
 
-    let objData: INewDesign = { decription: "", design: null, title: "" };
+    let objData: IDesign = { decription: "", design: null, title: "" };
 
     if (loadingButton.btn === "NEW_DESIGN") {
       objData = {
@@ -141,14 +179,93 @@ export default function Form() {
         whatsapp.trim().length === 0 &&
         photoIcone === null
       ) {
-        toast.warn("Preencha ao menos 1 campo para editar");
+        toast.warn(
+          "Preencha pelo menos um campo (seção Links e icone) para editar"
+        );
         setLoadingButton({ btn: "" });
         return;
       }
 
-      submit(url, "icon", obj, photoIcone);
+      submit(url, "data/icon", obj, photoIcone);
     } catch (e) {
       console.error("Error ", e);
+    }
+  }
+
+  async function submitAboutMe(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+    try {
+      const url: string = "data/aboutme";
+      const getObj: DocumentData = await getDoc(doc(db, url));
+
+      if (aboutMe.trim().length === 0 && avatarAdmin === null) {
+        toast.warn(
+          "Preencha pelo menos um campo (seção sobre mim) para editar"
+        );
+        return;
+      }
+
+      submit(
+        url,
+        "data/aboutme",
+        {
+          description:
+            aboutMe.trim().length > 0 ? aboutMe : getObj.data().description,
+        },
+        avatarAdmin
+      );
+    } catch (e) {
+      toast.error('Error ao adicionar os dados "sobre mim" ');
+      console.error("Error ", e);
+    }
+  }
+
+  async function submitEditComment(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+    try {
+      const url = "data/mt/comments/" + radio;
+      const getData: DocumentData = await getDoc(doc(db, url));
+
+      const newData: IComment = {
+        avatar: avatarClient === null ? getData.data().avatar : null,
+        name: nameClient.trim().length > 0 ? nameClient : getData.data().name,
+        description:
+          decriptionClient.trim().length > 0
+            ? decriptionClient
+            : getData.data().description,
+      };
+
+      submit(url, url, newData, avatarClient);
+    } catch (e) {
+      toast.error("Ocorreu um erro ao editar comentario");
+      console.error("Error ", e);
+    }
+  }
+
+  async function submitEditDesign(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+    try {
+      if (currentData) {
+        const data = {
+          design: editDesign === null ? currentData?.design : null,
+          title:
+            editTitleDesign === null ? currentData?.title : editTitleDesign,
+          decription:
+            editDescriptionDesign === null
+              ? currentData?.decription
+              : editDescriptionDesign,
+        };
+
+        submit(
+          "/design/mt/data/" + currentData.id,
+          "/design/data/" + currentData.id,
+          data,
+          editDesign
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Error ao editar Design");
     }
   }
 
@@ -156,7 +273,7 @@ export default function Form() {
     url: string,
     urlStorage: string,
 
-    obj: INewDesign | ILinksSocialMidia,
+    obj: IComment | IDesign | ILinksSocialMidia | IAboutMe,
     photo: File | null
   ) {
     try {
@@ -195,19 +312,71 @@ export default function Form() {
           setWhatsapp("");
           setPhotoIcone(null);
 
-          toast.success("editado com sucesso");
+          toast.success("Links e icone editado com sucesso");
+          break;
+        }
+
+        case "ABOUT_ME": {
+          await setDoc(doc(db, url), obj);
+          if (photo) await uploadBytes(ref(storage, urlStorage), photo);
+
+          setAvatarAdmin(null);
+          setAboutMe("");
+
+          toast.success("Sobre mim editado com sucesso");
+
+          break;
+        }
+
+        case "EDIT_COMMENT": {
+          await setDoc(doc(db, url), obj);
+          if (photo) {
+            await uploadBytes(ref(storage, urlStorage), photo);
+            const getDesign = await getDownloadURL(ref(storage, urlStorage));
+            if ("avatar" in obj && "name" in obj && "description" in obj) {
+              const objData: IComment = obj;
+              objData.avatar = getDesign;
+              await editTask(url, obj);
+            }
+
+            setNameClient("");
+            setDecriptionClient("");
+            setAvatarClient(null);
+            toast.success("Comentario salvo com sucesso");
+          }
+          break;
+        }
+
+        case "EDIT_DESIGN": {
+          if (photo && "design" in obj) {
+            console.log("Estamos squi");
+            await uploadBytes(ref(storage, urlStorage), photo);
+            const getData = await getDownloadURL(ref(storage, urlStorage));
+
+            obj.design = getData;
+          }
+          await setDoc(doc(db, url), obj);
+
+          setEditDesign(null);
+          setEditDescriptionDesign("");
+          setEditTitleDesign("");
+
+          setCurrentData(null);
+          setToggleViewEditDesign(false);
+
+          toast.success("Design Editado com sucesso");
           break;
         }
       }
     } catch (e) {
       console.error("Error ", e);
-      toast.error("Erro ao adicionar design");
+      toast.error("Ocorreu um erro");
     } finally {
       setLoadingButton({ btn: "" });
     }
   }
 
-  async function editTask(url: string, obj: INewDesign) {
+  async function editTask(url: string, obj: IDesign | IComment) {
     try {
       await setDoc(doc(db, url), obj);
     } catch (e) {
@@ -222,6 +391,23 @@ export default function Form() {
     await uploadBytes(refStorage, photo);
     const getDesign = await getDownloadURL(refStorage);
     return getDesign;
+  }
+
+  async function handleDelete() {
+    try {
+      if (currentData) {
+        await deleteObject(ref(storage, "/design/data/" + currentData.id));
+        await deleteDoc(doc(db, "/design/mt/data/" + currentData.id));
+
+        setLoadingButton({ btn: "" });
+        setCurrentData(null);
+        setToggleViewEditDesign(false);
+        toast.success("Design apagado com sucesso");
+      }
+    } catch (e) {
+      toast.error("Ocorreu um erro ao deletar tarefa");
+      console.error("Error ao deletar design ", e);
+    }
   }
 
   return (
@@ -332,7 +518,7 @@ export default function Form() {
 
         <hr />
         <h3>Sobre mim</h3>
-        <form action="">
+        <form onSubmit={submitAboutMe}>
           <label htmlFor="Seu avatar">
             Sua foto
             <Styled.InputFile>
@@ -355,7 +541,14 @@ export default function Form() {
               onChange={(e) => setAboutMe(e.target.value)}
             ></textarea>
           </label>
-          <Styled.Button>add/atualizar descrição</Styled.Button>
+          <Styled.Button
+            type="submit"
+            onClick={() => setLoadingButton({ btn: "ABOUT_ME" })}
+          >
+            {loadingButton.btn !== "" && loadingButton.btn === "ABOUT_ME"
+              ? "carregando"
+              : "add/atualizar descrição"}
+          </Styled.Button>
         </form>
       </Styled.Container>
 
@@ -365,16 +558,37 @@ export default function Form() {
         <hr />
 
         <h3>Comentarios</h3>
-        <form action="">
+        <form onSubmit={submitEditComment}>
           <ul>
             <li>
-              <input type="radio" name="comments" /> #1
+              <input
+                type="radio"
+                checked={radio === "1"}
+                value={"1"}
+                onChange={(e) => setRadio(e.target.value)}
+                name="comments"
+              />{" "}
+              #1
             </li>
             <li>
-              <input type="radio" name="comments" /> #2
+              <input
+                type="radio"
+                checked={radio === "2"}
+                value={"2"}
+                onChange={(e) => setRadio(e.target.value)}
+                name="comments"
+              />{" "}
+              #2
             </li>
             <li>
-              <input type="radio" name="comments" /> #3
+              <input
+                type="radio"
+                checked={radio === "3"}
+                value={"3"}
+                onChange={(e) => setRadio(e.target.value)}
+                name="comments"
+              />{" "}
+              #3
             </li>
           </ul>
 
@@ -409,12 +623,19 @@ export default function Form() {
               onChange={(e) => setDecriptionClient(e.target.value)}
             ></textarea>
           </label>
-          <Styled.Button>Editar Comentario</Styled.Button>
+          <Styled.Button
+            type="submit"
+            onClick={() => setLoadingButton({ btn: "EDIT_COMMENT" })}
+          >
+            {loadingButton.btn !== "" && loadingButton.btn === "EDIT_COMMENT"
+              ? "carregando"
+              : "Editar Comentario"}
+          </Styled.Button>
         </form>
 
         <hr />
         <h3>Editar designs</h3>
-        <form action="">
+        <form onSubmit={submitEditDesign}>
           {toggleViewEditDesign && (
             <>
               <label htmlFor="design">
@@ -451,35 +672,34 @@ export default function Form() {
                 ></textarea>
               </label>
 
-              <Styled.Button>Editar</Styled.Button>
+              <Styled.DivButton>
+                <Styled.Button
+                  type="submit"
+                  onClick={() => setLoadingButton({ btn: "EDIT_DESIGN" })}
+                >
+                  {loadingButton.btn !== "" &&
+                  loadingButton.btn === "EDIT_DESIGN"
+                    ? "carregando"
+                    : "Editar"}
+                </Styled.Button>
+
+                <button onClick={handleDelete}>Deletar Design</button>
+              </Styled.DivButton>
             </>
           )}
 
           <Styled.Ul>
-            <li onClick={handleEditDesing}>
-              <img src={noUser} alt="design" />
-            </li>
-            <li onClick={handleEditDesing}>
-              <img src={noUser} alt="design" />
-            </li>
-            <li>
-              <img src={noUser} alt="design" />
-            </li>
-            <li>
-              <img src={noUser} alt="design" />
-            </li>
-            <li>
-              <img src={noUser} alt="design" />
-            </li>
-            <li>
-              <img src={noUser} alt="design" />
-            </li>
-            <li>
-              <img src={noUser} alt="design" />
-            </li>
-            <li>
-              <img src={noUser} alt="design" />
-            </li>
+            {listDesigns.length > 0 ? (
+              listDesigns.map((resp) => (
+                <li onClick={() => handleEditDesing(resp)} key={resp.id}>
+                  <img src={resp.design ? resp.design : ""} alt="design" />
+                </li>
+              ))
+            ) : (
+              <>
+                <strong>Não a designs no momento</strong>
+              </>
+            )}
           </Styled.Ul>
         </form>
       </Styled.Container>

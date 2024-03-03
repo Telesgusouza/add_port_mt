@@ -8,23 +8,34 @@ export interface ILoadingButton {
     | "EDIT_DESIGN";
 }
 
-export interface INewDesign {
+export interface IDesign {
+  id?: string;
   design: null | string;
   title: string;
   decription: string;
 }
 
 export interface IIcone {
-    icon: string;
+  icon: string;
 }
 
 export interface ILinksSocialMidia {
-    instagram: string;
-    linkedin: string;
-    whatsapp: string;
+  instagram: string;
+  linkedin: string;
+  whatsapp: string;
 }
 
 export interface ILinksAndIcon {
-    icon: string | null;
-    links: ILinksSocialMidia;
+  icon: string | null;
+  links: ILinksSocialMidia;
+}
+
+export interface IAboutMe {
+  description: string;
+}
+
+export interface IComment {
+  avatar: string | null;
+  name: string;
+  description: string;
 }
