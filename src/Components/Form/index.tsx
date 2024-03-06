@@ -9,7 +9,10 @@ import {
   doc,
   getDoc,
   getDocs,
+  orderBy,
+  query,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { db, storage } from "../../Config/Firebase/firebase";
 import {
@@ -68,7 +71,15 @@ export default function Form() {
   useEffect(() => {
     async function getListData() {
       try {
-        const listData = await getDocs(collection(db, "/design/mt/data"));
+        const collectionRef = collection(db, "/design/mt/data");
+        const q = query(
+          collectionRef,
+          where("date", ">", new Date("2024-01-01")),
+          orderBy("date", "desc")
+        );
+
+        const listData = await getDocs(q);
+
         const list: IDesign[] = [];
         listData.docs.forEach((element: DocumentData) => {
           list.push({
@@ -542,7 +553,10 @@ export default function Form() {
             <ul>
               {listFilter.length > 0 &&
                 listFilter.map((resp) => (
-                  <li onClick={() => setCurrentFilter(resp.filter)} key={resp.id} >
+                  <li
+                    onClick={() => setCurrentFilter(resp.filter)}
+                    key={resp.id}
+                  >
                     {resp.filter}
                   </li>
                 ))}
@@ -585,9 +599,9 @@ export default function Form() {
             <ul>
               {listFilter.length > 0 &&
                 listFilter.map((resp) => (
-                  
-                    <li onClick={() => deleteFilter(resp)} key={resp.id} >{resp.filter}</li>
-                  
+                  <li onClick={() => deleteFilter(resp)} key={resp.id}>
+                    {resp.filter}
+                  </li>
                 ))}
             </ul>
           </Styled.ListDesigns>
