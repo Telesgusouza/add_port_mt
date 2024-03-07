@@ -648,7 +648,7 @@ export default function Form() {
               type="text"
               value={whatsapp}
               onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="Link do whatsapp"
+              placeholder="numero de telefone exemplo 11999999999"
             />
           </label>
           <Styled.Button
